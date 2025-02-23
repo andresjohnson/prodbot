@@ -1,9 +1,9 @@
-# Ignorar archivos sensibles
-.env
-venv/
-__pycache__/
+# Archivos que NO queremos subir a GitHub
 .env
 venv/
 __pycache__/
 # Archivos no deseados
-
+#
+Si
+VSCode
+usas
