@@ -7,3 +7,4 @@ __pycache__/
 Si
 VSCode
 usas
+.DS_Store # Ignora .DS_Store
