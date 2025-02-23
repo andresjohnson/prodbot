@@ -4,7 +4,7 @@ blinker==1.9.0
 certifi==2025.1.31
 click==8.1.8
 distro==1.9.0
-faiss-cpu==1.10.0
+faiss==1.10.0
 Flask==3.1.0
 h11==0.14.0
 httpcore==1.0.7
