@@ -94,6 +94,8 @@ def handle_message(event, say):
 # Ruta para eventos de Slack
 @flask_app.route("/slack/events", methods=["POST"])
 def slack_events():
+    if request.json and "challenge" in request.json:
+        return jsonify({"challenge": request.json["challenge"]})
     return handler.handle(request)
 
 @flask_app.route("/test", methods=["POST"])
