@@ -1,10 +1,10 @@
 import os
+from flask import Flask, request, jsonify
 from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
-from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 
-# Cargar las variables de entorno
+# Cargar variables de entorno
 load_dotenv()
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
@@ -22,19 +22,19 @@ handler = SlackRequestHandler(app)
 def slack_events():
     data = request.json
 
-    # Slack envía un "challenge" en la primera verificación
+    # Si Slack envía un "challenge", lo respondemos
     if "challenge" in data:
         return jsonify({"challenge": data["challenge"]})
 
-    # Pasar el evento a Slack Bolt
+    # Pasamos el evento a Slack Bolt
     return handler.handle(request)
 
-# Evento para responder cuando alguien menciona el bot
+# Evento para responder cuando alguien menciona al bot
 @app.event("app_mention")
 def handle_mention(event, say):
     user = event["user"]
     say(f"¡Hola <@{user}>! Estoy aquí para responder tus preguntas sobre myHotel.")
 
-# Iniciar el servidor en Render
+# Iniciar la aplicación en Render
 if __name__ == "__main__":
     flask_app.run(host="0.0.0.0", port=10000)
