@@ -3,8 +3,7 @@ import pickle
 import faiss
 import numpy as np
 from flask import Flask, request, jsonify
-from slack_bolt import App
-from slack_bolt.adapter.flask import SlackRequestHandler
+from twilio.twiml.messaging_response import MessagingResponse
 from langchain_openai import OpenAIEmbeddings
 from openai import OpenAI, OpenAIError
 from dotenv import load_dotenv
@@ -17,8 +16,6 @@ logger = logging.getLogger(__name__)
 
 # Cargar variables de entorno
 load_dotenv()
-SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
-SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Inicializar OpenAI y Embeddings
@@ -36,10 +33,8 @@ except FileNotFoundError:
     logger.error("No se encontró el archivo faiss_index.pkl")
     raise Exception("No se encontró el índice FAISS. Genera la base de conocimientos primero.")
 
-# Crear la aplicación Flask y Slack
-app = App(token=SLACK_BOT_TOKEN, signing_secret=SLACK_SIGNING_SECRET)
+# Crear la aplicación Flask
 flask_app = Flask(__name__)
-handler = SlackRequestHandler(app)
 
 # Función para buscar información
 def buscar_respuesta(query):
@@ -70,43 +65,22 @@ def generar_respuesta(query, contexto):
             time.sleep(2)
     return "Lo siento, no pude generar una respuesta ahora. Intenta de nuevo."
 
-# Evento para menciones
-@app.event("app_mention")
-def handle_mention(event, say):
-    logger.info(f"Consulta recibida: {event['text']}")
-    say("Procesando tu solicitud...")
-    query = event["text"].replace(f"<@{event['bot_id']}>", "").strip()
+# Ruta para WhatsApp
+@flask_app.route("/whatsapp", methods=["POST"])
+def whatsapp_reply():
+    # Obtener el mensaje de WhatsApp
+    query = request.values.get("Body", "").strip()
+    logger.info(f"Mensaje recibido de WhatsApp: {query}")
+
+    # Buscar y generar respuesta
     contexto = buscar_respuesta(query)
     respuesta = generar_respuesta(query, contexto)
     logger.info(f"Respuesta enviada: {respuesta}")
-    say(respuesta)
 
-# Evento para mensajes directos
-@app.event("message")
-def handle_message(event, say):
-    if "channel_type" in event and event["channel_type"] == "im":
-        logger.info(f"Mensaje directo recibido: {event['text']}")
-        query = event["text"]
-        contexto = buscar_respuesta(query)
-        respuesta = generar_respuesta(query, contexto)
-        say(respuesta)
-
-# Ruta para eventos de Slack
-@flask_app.route("/slack/events", methods=["POST"])
-def slack_events():
-    if request.json and "challenge" in request.json:
-        return jsonify({"challenge": request.json["challenge"]})
-    return handler.handle(request)
-
-@flask_app.route("/test", methods=["POST"])
-def test_query():
-    data = request.get_json()
-    query = data.get("text", "No query provided")
-    logger.info(f"Consulta recibida vía curl: {query}")
-    contexto = buscar_respuesta(query)
-    respuesta = generar_respuesta(query, contexto)
-    logger.info(f"Respuesta enviada: {respuesta}")
-    return jsonify({"response": respuesta})
+    # Crear respuesta para WhatsApp
+    resp = MessagingResponse()
+    resp.message(respuesta)
+    return str(resp)
 
 if __name__ == "__main__":
     flask_app.run(host="0.0.0.0", port=10000)
