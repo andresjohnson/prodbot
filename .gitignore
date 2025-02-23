@@ -1,0 +1,4 @@
+# Ignorar archivos sensibles
+.env
+venv/
+__pycache__/
