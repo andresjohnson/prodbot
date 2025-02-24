@@ -98,29 +98,35 @@ def whatsapp_reply():
     resp.message(respuesta)
     return str(resp)
 
-@flask_app.route("/slack", methods=["POST"])
+@flask_app.route("/slack/events", methods=["POST"])
 def slack_reply():
-    logger.info("Solicitud recibida en /slack")
-    # Intentar obtener datos en formato JSON primero, luego como form
+    logger.info("Solicitud recibida en /slack/events")
     try:
-        data = request.get_json() or request.form
+        data = request.get_json()
+        if not data:
+            logger.error("No se recibió JSON válido en la solicitud")
+            return jsonify({"error": "Invalid payload"}), 400
     except Exception as e:
         logger.error(f"Error al parsear datos de Slack: {str(e)}")
         return jsonify({"error": "Invalid payload"}), 400
 
-    logger.info(f"Datos recibidos de Slack: {dict(data)}")
+    logger.info(f"Datos recibidos de Slack: {data}")
     
     if data.get("type") == "url_verification":
         challenge = data.get("challenge")
         logger.info(f"Recibido desafío de Slack: {challenge}")
         return jsonify({"challenge": challenge})
     
-    if data.get("subtype") == "bot_message" or not slack_client:
+    # Extraer el evento del payload
+    event = data.get("event")
+    if not event:
+        logger.info("No se encontró 'event' en el payload, ignorado")
+        return jsonify({"status": "ignored"}), 200
+
+    if event.get("subtype") == "bot_message" or not slack_client:
         logger.info("Mensaje ignorado: bot o slack_client no disponible")
         return jsonify({"status": "ignored"}), 200
 
-    # Extraer el evento real si está envuelto en un diccionario 'event'
-    event = data.get("event", data)
     query = event.get("text", "").strip()
     channel_id = event.get("channel")
     logger.info(f"Mensaje recibido de Slack: '{query}' en canal {channel_id}")
