@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")  # Añade esto a tu .env
+SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
@@ -54,26 +54,31 @@ def buscar_respuesta(query):
         logger.info(f"Búsqueda FAISS completada: {len(indices[0])} resultados.")
         if indices[0][0] >= 0 and indices[0][0] < len(texts) and distances[0][0] < 0.8:
             return texts[indices[0][0]]
-        return "No encontré nada específico en la base."
+        return "No encontré nada específico en la base, pero voy a improvisar con lo que sé."
     except Exception as e:
         logger.error(f"Error en búsqueda FAISS: {type(e).__name__}: {str(e)}")
-        return "Hubo un problema al buscar en la base."
+        return "Ups, algo falló al buscar en la base. ¡Pero tranquila/o, lo resolveremos!"
 
 def generar_respuesta(query, contexto):
-    for _ in range(3):
-        try:
-            respuesta = openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "Eres un compañero del equipo de myHotel y conoces Fidelity Suite al detalle. Responde con un tono natural, claro y amigable, como si charláramos en el equipo. Sé conciso, ve al grano y usa solo los términos internos cuando la pregunta lo pida. Si la base tiene la respuesta, úsala directamente:\n" + contexto},
-                    {"role": "user", "content": query}
-                ]
-            )
-            return respuesta.choices[0].message.content
-        except OpenAIError as e:
-            logger.warning(f"Error en OpenAI, reintentando: {type(e).__name__}: {str(e)}")
-            time.sleep(2)
-    return "No pude responder ahora. ¿Probamos de nuevo?"
+    try:
+        respuesta = openai_client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": (
+                    "Eres Fidelia, un asistente de IA con un toque de humor y mucha amabilidad, creado para el equipo de myHotel. "
+                    "Tu nombre es un guiño a Fidelity Suite (Fidel-I.A.), y conoces esa herramienta al dedillo. "
+                    "Responde con un tono relajado, ingenioso y cercano, como si fueras un colega más del equipo. "
+                    "Sé precisa/o en tus respuestas, usa datos de la base cuando estén disponibles, y si no sabes algo, "
+                    "admítelo con gracia. Siempre termina preguntando si hay más dudas o en qué más puedes ayudar."
+                    "\nContexto de la base: " + contexto
+                )},
+                {"role": "user", "content": query}
+            ]
+        )
+        return respuesta.choices[0].message.content
+    except OpenAIError as e:
+        logger.warning(f"Error en OpenAI: {str(e)}")
+        return "¡Ay, caramba! Parece que OpenAI está de siesta. ¿Probamos de nuevo o necesitas algo más?"
 
 @flask_app.route("/whatsapp", methods=["POST"])
 def whatsapp_reply():
@@ -81,7 +86,8 @@ def whatsapp_reply():
     logger.info(f"Mensaje recibido de WhatsApp: {query}")
     contexto_faiss = buscar_respuesta(query)
     contexto_enriquecido = (
-        "En myHotel usamos Fidelity Suite para gestionar lo que pasa con los huéspedes y las operaciones. Esto es lo que sé de la base: " + contexto_faiss
+        "En myHotel usamos Fidelity Suite para gestionar lo que pasa con los huéspedes y las operaciones. "
+        "Esto es lo que sé de la base: " + contexto_faiss
     )
     respuesta = generar_respuesta(query, contexto_enriquecido)
     logger.info(f"Respuesta enviada a WhatsApp: {respuesta}")
@@ -92,11 +98,7 @@ def whatsapp_reply():
 @flask_app.route("/slack", methods=["POST"])
 def slack_reply():
     data = request.form
-    if data.get("token") != os.getenv("SLACK_VERIFICATION_TOKEN"):  # Verificación opcional
-        return jsonify({"error": "Invalid token"}), 403
-
-    # Evitar responder a bots o mensajes irrelevantes
-    if data.get("type") == "url_verification":  # Para la verificación inicial de Slack
+    if data.get("type") == "url_verification":
         return jsonify({"challenge": data.get("challenge")})
     if data.get("subtype") == "bot_message" or not slack_client:
         return jsonify({"status": "ignored"}), 200
@@ -107,7 +109,8 @@ def slack_reply():
     
     contexto_faiss = buscar_respuesta(query)
     contexto_enriquecido = (
-        "En myHotel usamos Fidelity Suite para gestionar lo que pasa con los huéspedes y las operaciones. Esto es lo que sé de la base: " + contexto_faiss
+        "En myHotel usamos Fidelity Suite para gestionar lo que pasa con los huéspedes y las operaciones. "
+        "Esto es lo que sé de la base: " + contexto_faiss
     )
     respuesta = generar_respuesta(query, contexto_enriquecido)
     logger.info(f"Respuesta enviada a Slack: {respuesta}")
