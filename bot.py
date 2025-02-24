@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
-SLACK_BOT_USER_ID = os.getenv("SLACK_BOT_USER_ID")
+SLACK_BOT_USER_ID = os.getenv("SLACK_BOT_USER_ID")  # Ej. "U08F00BTTH7" (ID del bot)
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
@@ -117,14 +117,14 @@ def slack_reply():
         logger.info(f"Recibido desafío de Slack: {challenge}")
         return jsonify({"challenge": challenge})
     
-    # Extraer el evento del payload
     event = data.get("event")
     if not event:
         logger.info("No se encontró 'event' en el payload, ignorado")
         return jsonify({"status": "ignored"}), 200
 
-    if event.get("subtype") == "bot_message" or not slack_client:
-        logger.info("Mensaje ignorado: bot o slack_client no disponible")
+    # Ignorar mensajes enviados por el propio bot
+    if event.get("bot_id") == "B08F00BTTH7" or event.get("subtype") == "bot_message" or not slack_client:
+        logger.info("Mensaje ignorado: enviado por el bot o slack_client no disponible")
         return jsonify({"status": "ignored"}), 200
 
     query = event.get("text", "").strip()
