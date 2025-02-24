@@ -2,4 +2,6 @@ faiss-cpu==1.10.0
 flask==3.1.0
 twilio==9.3.6
 numpy==2.2.3
-sentence-transformers==3.2.1
+openai==1.64.0
+langchain-openai
+requests==2.32.3
