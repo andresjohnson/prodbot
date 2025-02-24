@@ -10,17 +10,18 @@ from langchain_openai import OpenAIEmbeddings
 from openai import OpenAI, OpenAIError
 from dotenv import load_dotenv
 import logging
-import time
-import requests
 
+# Configuración de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Cargar variables de entorno
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 SLACK_BOT_USER_ID = os.getenv("SLACK_BOT_USER_ID")
 
+# Inicializar clientes
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 slack_client = WebClient(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
@@ -44,6 +45,7 @@ except Exception as e:
     logger.error(f"Error al cargar/reconstruir FAISS: {type(e).__name__}: {str(e)}")
     raise
 
+# Inicializar Flask
 flask_app = Flask(__name__)
 
 def buscar_respuesta(query):
@@ -122,27 +124,36 @@ def slack_reply():
         logger.info("No se encontró 'event' en el payload, ignorado")
         return jsonify({"status": "ignored"}), 200
 
-    # Ignorar mensajes enviados por el propio bot
-    if event.get("bot_id") == "B08F00BTTH7" or event.get("subtype") == "bot_message" or not slack_client:
-        logger.info("Mensaje ignorado: enviado por el bot o slack_client no disponible")
+    # Filtrado mejorado para mensajes del bot
+    event_ts = event.get("ts")
+    event_user = event.get("user")
+    bot_id = event.get("bot_id")
+    subtype = event.get("subtype")
+    
+    if (
+        bot_id  # Mensaje enviado por cualquier bot
+        or subtype == "bot_message"  # Subtipo de mensaje de bot
+        or event.get("bot_profile")  # Mensaje con perfil de bot
+        or (SLACK_BOT_USER_ID and event_user == SLACK_BOT_USER_ID)  # Mensaje del propio bot
+        or not slack_client  # Sin cliente de Slack
+    ):
+        logger.info(f"Mensaje ignorado: bot_id={bot_id}, subtype={subtype}, user={event_user}, tiene bot_profile={bool(event.get('bot_profile'))}")
         return jsonify({"status": "ignored"}), 200
 
     query = event.get("text", "").strip()
     channel_id = event.get("channel")
-    logger.info(f"Mensaje recibido de Slack: '{query}' en canal {channel_id}")
+    logger.info(f"Mensaje recibido de Slack: '{query}' en canal {channel_id} (ts: {event_ts})")
     
-    if not query:  # Ignorar mensajes vacíos
-        logger.info("Mensaje vacío, ignorado")
+    if not query or not channel_id:
+        logger.info(f"Mensaje vacío o sin canal, ignorado (query='{query}', channel_id={channel_id})")
         return jsonify({"status": "ignored"}), 200
 
-    if not channel_id:
-        logger.error("No se encontró channel_id en el evento")
-        return jsonify({"error": "Missing channel_id"}), 400
-
+    # Filtrar si no se menciona al bot explícitamente
     if SLACK_BOT_USER_ID and f"<@{SLACK_BOT_USER_ID}>" not in query:
         logger.info("Mensaje no dirigido al bot, ignorado")
         return jsonify({"status": "ignored"}), 200
 
+    # Procesar mensaje
     contexto_faiss = buscar_respuesta(query)
     logger.info(f"Contexto FAISS generado: {contexto_faiss}")
     
