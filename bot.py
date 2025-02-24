@@ -45,7 +45,7 @@ def buscar_respuesta(query):
         resultados = [texts[i] for i in idx[0] if i >= 0 and i < len(texts)]
         return " ".join(resultados) if resultados else "No encontré información relevante."
     except Exception as e:
-        logger.error(f"Error en búsqueda FAISS: {str(e)}")
+        logger.error(f"Error en búsqueda FAISS: {type(e).__name__}: {str(e)}")
         return "Hubo un error al buscar información."
 
 # Función para generar respuesta
@@ -61,7 +61,10 @@ def generar_respuesta(query, contexto):
             )
             return respuesta.choices[0].message.content
         except OpenAIError as e:
-            logger.warning(f"Error en OpenAI, reintentando: {str(e)}")
+            logger.warning(f"Error en OpenAI, reintentando: {type(e).__name__}: {str(e)}")
+            time.sleep(2)
+        except Exception as e:
+            logger.error(f"Error inesperado en OpenAI: {type(e).__name__}: {str(e)}")
             time.sleep(2)
     return "Lo siento, no pude generar una respuesta ahora. Intenta de nuevo."
 
