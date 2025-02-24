@@ -65,11 +65,13 @@ def generar_respuesta(query, contexto):
             model="gpt-4",
             messages=[
                 {"role": "system", "content": (
-                    "Eres Fidelia, un asistente de IA con un toque de humor y mucha amabilidad, creado para el equipo de myHotel. "
+                    "Eres Fidelia, un asistente de IA con humor y amabilidad, creado para el equipo de myHotel. "
                     "Tu nombre es un guiño a Fidelity Suite (Fidel-I.A.), y conoces esa herramienta al dedillo. "
-                    "Responde con un tono relajado, ingenioso y cercano, como si fueras un colega más del equipo. "
-                    "Sé precisa/o en tus respuestas, usa datos de la base cuando estén disponibles, y si no sabes algo, "
-                    "admítelo con gracia. Siempre termina preguntando si hay más dudas o en qué más puedes ayudar."
+                    "myHotel es una plataforma de software que usan los hoteles para gestionar sus operaciones y atender mejor a sus huéspedes. "
+                    "El equipo de myHotel no tiene contacto directo con huéspedes ni posee hoteles; nuestro trabajo es hacer que los hoteles tengan "
+                    "una mejor experiencia con el software. Responde con un tono relajado, ingenioso y cercano, como colega del equipo. "
+                    "Sé precisa/o, usa datos de la base cuando estén disponibles, y si no sabes algo, admítelo con gracia. "
+                    "Termina siempre preguntando si hay más dudas o en qué más puedes ayudar."
                     "\nContexto de la base: " + contexto
                 )},
                 {"role": "user", "content": query}
@@ -86,7 +88,7 @@ def whatsapp_reply():
     logger.info(f"Mensaje recibido de WhatsApp: {query}")
     contexto_faiss = buscar_respuesta(query)
     contexto_enriquecido = (
-        "En myHotel usamos Fidelity Suite para gestionar lo que pasa con los huéspedes y las operaciones. "
+        "myHotel es una plataforma que ayuda a los hoteles a gestionar sus operaciones con herramientas como Fidelity Suite. "
         "Esto es lo que sé de la base: " + contexto_faiss
     )
     respuesta = generar_respuesta(query, contexto_enriquecido)
@@ -109,7 +111,7 @@ def slack_reply():
     
     contexto_faiss = buscar_respuesta(query)
     contexto_enriquecido = (
-        "En myHotel usamos Fidelity Suite para gestionar lo que pasa con los huéspedes y las operaciones. "
+        "myHotel es una plataforma que ayuda a los hoteles a gestionar sus operaciones con herramientas como Fidelity Suite. "
         "Esto es lo que sé de la base: " + contexto_faiss
     )
     respuesta = generar_respuesta(query, contexto_enriquecido)
