@@ -26,9 +26,13 @@ try:
         data = pickle.load(f)
     index = data["index"]
     texts = data["texts"]
+    logger.info("Índice FAISS cargado correctamente.")
 except FileNotFoundError:
     logger.error("No se encontró el archivo faiss_index.pkl")
     raise Exception("No se encontró el índice FAISS. Genera la base de conocimientos primero.")
+except Exception as e:
+    logger.error(f"Error al cargar el índice FAISS: {type(e).__name__}: {str(e)}")
+    raise
 
 flask_app = Flask(__name__)
 
@@ -46,11 +50,25 @@ except Exception as e:
 
 def buscar_respuesta(query):
     try:
+        # Generar el embedding de la consulta
         query_vector = embeddings.embed_query(query)
         query_vector_np = np.array([query_vector], dtype=np.float32)
+        logger.info(f"Vector de consulta generado con forma: {query_vector_np.shape}")
+
+        # Realizar la búsqueda en el índice FAISS
         distances, indices = index.search(query_vector_np, k=5)
-        resultados = [texts[i] for i in indices[0] if i >= 0 and i < len(texts) and distances[0][indices[0].tolist().index(i)] < 0.8]
-        return " ".join(resultados) if resultados else "No encontré información específica, pero puedo ayudarte igual."
+        logger.info(f"Búsqueda FAISS completada: {len(indices[0])} resultados encontrados.")
+
+        # Filtrar resultados válidos
+        resultados = []
+        for i, dist in zip(indices[0], distances[0]):
+            if i >= 0 and i < len(texts) and dist < 0.8:  # Umbral de distancia
+                resultados.append(texts[i])
+        
+        if resultados:
+            return " ".join(resultados)
+        else:
+            return "No encontré información específica, pero puedo ayudarte igual."
     except Exception as e:
         logger.error(f"Error en búsqueda FAISS: {type(e).__name__}: {str(e)}")
         return "Hubo un problema al buscar información."
