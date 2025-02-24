@@ -12,7 +12,7 @@ import time
 import requests
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__main__)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -40,7 +40,7 @@ except Exception as e:
     logger.error(f"Error al cargar/reconstruir FAISS: {type(e).__name__}: {str(e)}")
     raise
 
-flask_app = Flask(__main__)
+flask_app = Flask(__name__)
 
 def buscar_respuesta(query):
     try:
