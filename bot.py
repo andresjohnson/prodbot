@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
+SLACK_BOT_USER_ID = os.getenv("SLACK_BOT_USER_ID")
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
@@ -99,29 +100,55 @@ def whatsapp_reply():
 
 @flask_app.route("/slack", methods=["POST"])
 def slack_reply():
-    data = request.form
+    logger.info("Solicitud recibida en /slack")
+    # Intentar obtener datos en formato JSON primero, luego como form
+    try:
+        data = request.get_json() or request.form
+    except Exception as e:
+        logger.error(f"Error al parsear datos de Slack: {str(e)}")
+        return jsonify({"error": "Invalid payload"}), 400
+
+    logger.info(f"Datos recibidos de Slack: {dict(data)}")
+    
     if data.get("type") == "url_verification":
-        return jsonify({"challenge": data.get("challenge")})
+        challenge = data.get("challenge")
+        logger.info(f"Recibido desafío de Slack: {challenge}")
+        return jsonify({"challenge": challenge})
+    
     if data.get("subtype") == "bot_message" or not slack_client:
+        logger.info("Mensaje ignorado: bot o slack_client no disponible")
         return jsonify({"status": "ignored"}), 200
 
-    query = data.get("text", "").strip()
-    channel_id = data.get("channel")
-    logger.info(f"Mensaje recibido de Slack: {query} en canal {channel_id}")
+    # Extraer el evento real si está envuelto en un diccionario 'event'
+    event = data.get("event", data)
+    query = event.get("text", "").strip()
+    channel_id = event.get("channel")
+    logger.info(f"Mensaje recibido de Slack: '{query}' en canal {channel_id}")
     
+    if not channel_id:
+        logger.error("No se encontró channel_id en el evento")
+        return jsonify({"error": "Missing channel_id"}), 400
+
+    if SLACK_BOT_USER_ID and f"<@{SLACK_BOT_USER_ID}>" not in query:
+        logger.info("Mensaje no dirigido al bot, ignorado")
+        return jsonify({"status": "ignored"}), 200
+
     contexto_faiss = buscar_respuesta(query)
+    logger.info(f"Contexto FAISS generado: {contexto_faiss}")
+    
     contexto_enriquecido = (
         "myHotel es una plataforma que ayuda a los hoteles a gestionar sus operaciones con herramientas como Fidelity Suite. "
         "Esto es lo que sé de la base: " + contexto_faiss
     )
     respuesta = generar_respuesta(query, contexto_enriquecido)
-    logger.info(f"Respuesta enviada a Slack: {respuesta}")
+    logger.info(f"Respuesta generada para Slack: {respuesta}")
 
     try:
         slack_client.chat_postMessage(channel=channel_id, text=respuesta)
+        logger.info(f"Mensaje enviado exitosamente a Slack en canal {channel_id}")
     except SlackApiError as e:
-        logger.error(f"Error al enviar mensaje a Slack: {str(e)}")
-        return jsonify({"error": "Slack API error"}), 500
+        logger.error(f"Error detallado al enviar mensaje a Slack: {e.response['error']}")
+        return jsonify({"error": f"Slack API error: {e.response['error']}"}), 500
 
     return jsonify({"status": "success"}), 200
 
