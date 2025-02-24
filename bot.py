@@ -49,11 +49,11 @@ def buscar_respuesta(query):
         query_vector = embeddings.embed_query(query)
         query_vector_np = np.array([query_vector], dtype=np.float32)
         distances, indices = index.search(query_vector_np, k=5)
-        resultados = [texts[i] for i in indices[0] if i >= 0 and i < len(texts) and distances[0][indices[0].tolist().index(i)] < 1.0]
-        return " ".join(resultados) if resultados else "No encontré información relevante."
+        resultados = [texts[i] for i in indices[0] if i >= 0 and i < len(texts) and distances[0][indices[0].tolist().index(i)] < 0.8]
+        return " ".join(resultados) if resultados else "No encontré información específica, pero puedo ayudarte igual."
     except Exception as e:
         logger.error(f"Error en búsqueda FAISS: {type(e).__name__}: {str(e)}")
-        return "Hubo un error al buscar información."
+        return "Hubo un problema al buscar información."
 
 def generar_respuesta(query, contexto):
     for _ in range(3):
@@ -61,7 +61,7 @@ def generar_respuesta(query, contexto):
             respuesta = openai_client.chat.completions.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "Eres el asistente oficial de myHotel, experto en Fidelity Suite. Responde con precisión, profesionalismo y un toque amigable, utilizando términos clave como NPS, PreStay, OnSite, FollowUp, IRO y otros relevantes de la plataforma myHotel. Asegúrate de que las respuestas sean claras, útiles y siempre alineadas con el contexto de la gestión hotelera:\n" + contexto},
+                    {"role": "system", "content": "Eres parte del equipo de myHotel y conoces Fidelity Suite a fondo. Responde como un compañero, con un tono natural, claro y cercano, utilizando términos como NPS, PreStay, OnSite como parte del lenguaje cotidiano del equipo. Haz que la respuesta sea útil, precisa y directa, como si estuviéramos conversando internamente:\n" + contexto},
                     {"role": "user", "content": query}
                 ]
             )
@@ -72,7 +72,7 @@ def generar_respuesta(query, contexto):
         except Exception as e:
             logger.error(f"Error inesperado en OpenAI: {type(e).__name__}: {str(e)}")
             time.sleep(2)
-    return "Lo siento, no pude generar una respuesta ahora. Intenta de nuevo."
+    return "Lo siento, no pude generar una respuesta ahora. Intenta de nuevo en un momento."
 
 @flask_app.route("/whatsapp", methods=["POST"])
 def whatsapp_reply():
@@ -80,8 +80,8 @@ def whatsapp_reply():
     logger.info(f"Mensaje recibido de WhatsApp: {query}")
     contexto_faiss = buscar_respuesta(query)
     contexto_enriquecido = (
-        "myHotel es una plataforma avanzada para la gestión hotelera que optimiza la experiencia del huésped y la reputación online. Fidelity Suite incluye módulos como PreStay (gestión antes de la llegada), OnSite (durante la estadía), FollowUp (post-estadía), Online (reseñas), Collect (generación de feedback) y Desk (tareas operativas). Usa métricas clave como NPS (Net Promoter Score), IRO (Índice de Reputación Online), y más.\n\n"
-        "Información relevante: " + contexto_faiss
+        "En myHotel usamos Fidelity Suite para manejar todo lo relacionado con los huéspedes antes, durante y después de su estadía. Por ejemplo, Desk es el módulo que nos permite gestionar casos y tareas operativas, creando y asignando lo que surge para resolverlo rápido y mantener la experiencia del huésped en lo más alto. Otros módulos como PreStay, OnSite y FollowUp cubren las etapas de la estadía, y usamos métricas como NPS e IRO para medir cómo vamos.\n\n"
+        "Esto es lo que encontré: " + contexto_faiss
     )
     respuesta = generar_respuesta(query, contexto_enriquecido)
     logger.info(f"Respuesta enviada: {respuesta}")
