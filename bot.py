@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
-SLACK_BOT_USER_ID = os.getenv("SLACK_BOT_USER_ID")  # Ej. "U08F00BTTH7" (ID del bot)
+SLACK_BOT_USER_ID = os.getenv("SLACK_BOT_USER_ID")
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
@@ -131,6 +131,10 @@ def slack_reply():
     channel_id = event.get("channel")
     logger.info(f"Mensaje recibido de Slack: '{query}' en canal {channel_id}")
     
+    if not query:  # Ignorar mensajes vacíos
+        logger.info("Mensaje vacío, ignorado")
+        return jsonify({"status": "ignored"}), 200
+
     if not channel_id:
         logger.error("No se encontró channel_id en el evento")
         return jsonify({"error": "Missing channel_id"}), 400
